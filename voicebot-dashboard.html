@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Voicebot QA Dashboard — Flex</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f8f8f6;
+    --surface: #ffffff;
+    --surface2: #f2f1ed;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --text: #1a1a18;
+    --text2: #5a5a56;
+    --text3: #9a9a94;
+    --blue: #185FA5;
+    --blue-bg: #E6F1FB;
+    --red: #A32D2D;
+    --red-bg: #FCEBEB;
+    --amber: #854F0B;
+    --amber-bg: #FAEEDA;
+    --green: #27500A;
+    --green-bg: #EAF3DE;
+    --gray-bg: #F1EFE8;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a18;
+      --surface: #242422;
+      --surface2: #2e2e2c;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.18);
+      --text: #f0f0ec;
+      --text2: #a0a09a;
+      --text3: #606060;
+      --blue-bg: #0c2440;
+      --red-bg: #2a1010;
+      --amber-bg: #2a1e08;
+      --green-bg: #0e200a;
+      --gray-bg: #2a2a28;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+  a { color: var(--blue); }
+
+  /* Layout */
+  .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 0; position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+  .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .header-left h1 { font-size: 17px; font-weight: 600; color: var(--text); }
+  .header-left .sub { font-size: 11px; color: var(--text3); margin-top: 1px; }
+  .header-right { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  main { padding: 20px 0 40px; }
+
+  /* Status bar */
+  .sbar { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 14px; margin-bottom: 18px; }
+  .sdot { width: 8px; height: 8px; border-radius: 50%; background: #639922; flex-shrink: 0; }
+  .sdot.loading { background: #BA7517; animation: pulse 1s infinite; }
+  .sdot.error { background: #E24B4A; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .sbar-actions { margin-left: auto; display: flex; gap: 8px; }
+
+  /* Metric cards */
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .mc { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .mc .lbl { font-size: 11px; color: var(--text3); margin-bottom: 5px; font-weight: 500; }
+  .mc .val { font-size: 28px; font-weight: 700; line-height: 1; }
+  .mc .sub { font-size: 10px; color: var(--text3); margin-top: 4px; }
+  .mc.p0 .val { color: var(--red); }
+  .mc.p1 .val { color: var(--amber); }
+  .mc.flag .val { color: var(--blue); }
+  .mc.warn .val { color: #BA7517; }
+
+  /* Charts */
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+  @media (max-width: 700px) { .charts { grid-template-columns: 1fr; } }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .chart-card h3 { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .chart-wrap { position: relative; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; font-size: 11px; color: var(--text2); }
+  .legend span { display: flex; align-items: center; gap: 4px; }
+  .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; overflow-x: auto; }
+  .tab { font-size: 13px; font-weight: 500; padding: 10px 18px; cursor: pointer; color: var(--text2); border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; border-top: none; border-left: none; border-right: none; white-space: nowrap; transition: color .15s; }
+  .tab:hover { color: var(--text); }
+  .tab.on { color: var(--text); border-bottom-color: var(--text); }
+  .tab .count { display: inline-block; background: var(--surface2); border-radius: 10px; font-size: 10px; padding: 1px 6px; margin-left: 5px; color: var(--text3); }
+  .tab.on .count { background: var(--blue); color: #fff; }
+
+  /* Filters */
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; }
+  .filter-group { display: flex; align-items: center; gap: 5px; }
+  .filter-group label { font-size: 11px; color: var(--text3); font-weight: 500; white-space: nowrap; }
+  select, input[type=text] { font-size: 12px; height: 30px; padding: 0 10px; border: 1px solid var(--border2); border-radius: 6px; background: var(--surface); color: var(--text); outline: none; }
+  select:focus, input:focus { border-color: var(--blue); }
+  input[type=text] { min-width: 180px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; height: 32px; padding: 0 14px; border: 1px solid var(--border2); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; white-space: nowrap; }
+  .btn:hover { background: var(--surface2); border-color: var(--border2); }
+  .btn.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn.primary:hover { opacity: .88; }
+  .btn.sm { height: 28px; font-size: 11px; padding: 0 10px; }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  thead { position: sticky; top: 0; z-index: 2; }
+  th { font-size: 11px; font-weight: 600; color: var(--text2); text-align: left; padding: 9px 12px; background: var(--surface2); border-bottom: 1px solid var(--border); white-space: nowrap; cursor: pointer; user-select: none; }
+  th:hover { color: var(--text); }
+  td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  td.mono { font-family: 'SF Mono', Menlo, monospace; font-size: 11px; color: var(--text2); }
+  td.notes-cell { max-width: 260px; }
+  td.notes-cell .notes-short { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+  td.notes-cell .notes-full { display: none; white-space: pre-wrap; word-break: break-word; font-size: 11px; color: var(--text2); }
+  td.notes-cell.expanded .notes-short { display: none; }
+  td.notes-cell.expanded .notes-full { display: block; }
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--surface2); }
+  .sort-icon { opacity: .4; font-size: 10px; margin-left: 3px; }
+  .sort-icon.active { opacity: 1; }
+
+  /* Badges */
+  .badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+  .badge.p0 { background: var(--red-bg); color: var(--red); }
+  .badge.p1 { background: var(--amber-bg); color: var(--amber); }
+  .badge.ni { background: var(--green-bg); color: var(--green); }
+  .badge.ok { background: var(--green-bg); color: var(--green); }
+  .badge.flagged { background: var(--blue-bg); color: var(--blue); }
+  .badge.gray { background: var(--gray-bg); color: var(--text2); }
+  .badge.upgrade { background: var(--amber-bg); color: var(--amber); }
+  .badge.rerate { background: var(--red-bg); color: var(--red); }
+  .badge.incomplete { background: var(--gray-bg); color: var(--text3); }
+  .badge.confirmed { background: var(--green-bg); color: var(--green); }
+
+  /* Pagination */
+  .pagination { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px 0; }
+  .pagination .info { font-size: 12px; color: var(--text3); }
+  .pagination .controls { display: flex; gap: 6px; }
+
+  /* SOP cards */
+  .sop-cards { display: flex; flex-direction: column; gap: 12px; }
+  .sop-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .sop-card-header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .sop-card-header .call-num { font-size: 13px; font-weight: 600; color: var(--text); }
+  .sop-card-header .meta { font-size: 11px; color: var(--text2); }
+  .sop-card-header .call-id { font-family: 'SF Mono', Menlo, monospace; font-size: 10px; color: var(--text3); }
+  .sop-card-header .giga-link { margin-left: auto; font-size: 11px; }
+  .sop-card-body { padding: 14px 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .sop-card-body { grid-template-columns: 1fr; } }
+  .sop-section h4 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .sop-section p { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .sop-check { grid-column: 1 / -1; border-radius: var(--radius-sm); padding: 12px 14px; border-left: 3px solid; }
+  .sop-check .check-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 5px; }
+  .sop-check p { font-size: 12px; line-height: 1.6; }
+  .sop-check.confirmed { background: var(--green-bg); border-color: #639922; }
+  .sop-check.confirmed .check-label, .sop-check.confirmed p { color: #1e4009; }
+  .sop-check.upgrade { background: var(--amber-bg); border-color: #BA7517; }
+  .sop-check.upgrade .check-label, .sop-check.upgrade p { color: #5a3005; }
+  .sop-check.rerate { background: var(--red-bg); border-color: #E24B4A; }
+  .sop-check.rerate .check-label, .sop-check.rerate p { color: #6b1010; }
+  .sop-check.incomplete { background: var(--gray-bg); border-color: #AAAAAA; }
+  .sop-check.incomplete .check-label, .sop-check.incomplete p { color: var(--text2); }
+  .sop-filter-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .sop-filter-btn { font-size: 12px; font-weight: 500; padding: 5px 14px; border: 1px solid var(--border2); border-radius: 20px; background: var(--surface); color: var(--text2); cursor: pointer; transition: all .15s; }
+  .sop-filter-btn:hover, .sop-filter-btn.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+
+  /* AI review */
+  .ai-cards { display: flex; flex-direction: column; gap: 10px; }
+  .ai-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .ai-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .ai-card p { font-size: 12px; color: var(--text2); line-height: 1.6; }
+  .ai-run-area { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; flex: 1; min-width: 120px; }
+  .progress-fill { height: 100%; background: var(--blue); border-radius: 2px; transition: width .3s; }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+  .empty .icon { font-size: 32px; margin-bottom: 8px; }
+
+  /* Sheet config */
+  .sheet-config { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 18px; }
+  .sheet-config h3 { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+  .sheet-config .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .sheet-config input { flex: 1; min-width: 200px; }
+  .sheet-note { font-size: 11px; color: var(--text3); margin-top: 8px; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--text); color: var(--bg); font-size: 13px; padding: 10px 18px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,.2); z-index: 999; opacity: 0; transform: translateY(8px); transition: all .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  @media (max-width: 600px) { .metrics { grid-template-columns: repeat(2, 1fr); } .sop-card-body { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <div class="header-left">
+      <h1>Voicebot QA Dashboard</h1>
+      <div class="sub">Flex · Platform: Giga · Apr 23 onward · Auto-updates from Google Sheets</div>
+    </div>
+    <div class="header-right">
+      <button class="btn" onclick="loadSheet()">↺ Refresh</button>
+      <button class="btn" onclick="exportCSV()">↓ Export CSV</button>
+      <button class="btn primary" onclick="window.open('https://docs.google.com/spreadsheets/d/'+SHEET_ID,'_blank')">Open Sheet ↗</button>
+    </div>
+  </div>
+</header>
+
+<main>
+<div class="container">
+
+  <!-- Sheet config -->
+  <div class="sheet-config" id="sheetConfig">
+    <h3>Google Sheet connection</h3>
+    <div class="row">
+      <input type="text" id="sheetIdInput" placeholder="Sheet ID (from URL: /spreadsheets/d/SHEET_ID/edit)" />
+      <input type="text" id="sheetTabInput" placeholder="Tab name (e.g. Voicebot P1_P0)" style="max-width:220px" />
+      <button class="btn primary" onclick="connectSheet()">Connect</button>
+      <button class="btn sm" onclick="document.getElementById('sheetConfig').style.display='none'">Hide</button>
+    </div>
+    <div class="sheet-note">Your Sheet ID is saved in your browser. Make sure the sheet is shared as "Anyone with the link can view."</div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="sbar">
+    <div class="sdot loading" id="sdot"></div>
+    <span id="stxt">Connecting to Google Sheets...</span>
+    <div class="sbar-actions">
+      <span style="font-size:11px;color:var(--text3)" id="lastUpdated"></span>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="metrics">
+    <div class="mc p0"><div class="lbl">P0 — Critical</div><div class="val" id="mP0">—</div><div class="sub">wrong / harmful info</div></div>
+    <div class="mc p1"><div class="lbl">P1 — Incorrect</div><div class="val" id="mP1">—</div><div class="sub">incomplete info</div></div>
+    <div class="mc"><div class="lbl">No Issue</div><div class="val" id="mNI">—</div><div class="sub">passed review</div></div>
+    <div class="mc warn"><div class="lbl">Upgrade to P0?</div><div class="val" id="mUp">9</div><div class="sub">SOP flags</div></div>
+    <div class="mc warn"><div class="lbl">Re-rate to P1?</div><div class="val" id="mRe">2</div><div class="sub">No Issue → P1</div></div>
+    <div class="mc"><div class="lbl">Abandoned</div><div class="val" id="mAb">—</div><div class="sub">with engagement</div></div>
+    <div class="mc flag"><div class="lbl">AI Flags</div><div class="val" id="mAI">—</div><div class="sub">live AI review</div></div>
+    <div class="mc"><div class="lbl">Total Reviewed</div><div class="val" id="mTot">—</div><div class="sub">Apr 23 onward</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts">
+    <div class="chart-card">
+      <h3>Issues by date</h3>
+      <div class="legend">
+        <span><i style="background:#E24B4A"></i>P0</span>
+        <span><i style="background:#BA7517"></i>P1</span>
+        <span><i style="background:#EF9F27;opacity:.6"></i>Suggest P0 upgrade</span>
+      </div>
+      <div class="chart-wrap" style="height:180px"><canvas id="trendChart" role="img" aria-label="Stacked bar chart of issues by date">Issue trend by date.</canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>Issues by reviewer</h3>
+      <div class="chart-wrap" id="reviewerWrap" style="height:180px"><canvas id="reviewerChart" role="img" aria-label="Issues per reviewer bar chart">Reviewer breakdown.</canvas></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab on" onclick="swTab('log',this)">Call Log <span class="count" id="logCount">—</span></button>
+    <button class="tab" onclick="swTab('sop',this)">SOP Accuracy Review <span class="count" id="sopCount">44</span></button>
+    <button class="tab" onclick="swTab('ai',this)">AI Review <span class="count" id="aiCount">—</span></button>
+  </div>
+
+  <!-- ── CALL LOG TAB ── -->
+  <div id="tabLog">
+    <div class="filters">
+      <div class="filter-group"><label>Priority</label>
+        <select id="fPri" onchange="applyFilters()">
+          <option value="">All</option><option>P0</option><option>P1</option><option value="No Issue">No Issue</option>
+        </select>
+      </div>
+      <div class="filter-group"><label>Date</label>
+        <select id="fDate" onchange="applyFilters()"><option value="">All dates</option></select>
+      </div>
+      <div class="filter-group"><label>Reviewer</label>
+        <select id="fRev" onchange="applyFilters()"><option value="">All reviewers</option></select>
+      </div>
+      <div class="filter-group"><label>Type</label>
+        <select id="fType" onchange="applyFilters()">
+          <option value="">All</option><option>Voice Audit</option><option>Transcript Audit</option>
+        </select>
+      </div>
+      <div class="filter-group"><label>Abandoned</label>
+        <select id="fAb" onchange="applyFilters()">
+          <option value="">All</option><option value="No">No</option><option value="Yes - With Engagement">Yes — Engaged</option>
+        </select>
+      </div>
+      <div class="filter-group"><label>SOP flag</label>
+        <select id="fSop" onchange="applyFilters()">
+          <option value="">All</option>
+          <option value="confirmed">✓ Confirmed</option>
+          <option value="upgrade">↑ Upgrade to P0</option>
+          <option value="rerate">↑ Re-rate to P1</option>
+          <option value="incomplete">⚠ Incomplete</option>
+        </select>
+      </div>
+      <div class="filter-group"><label>AI flag</label>
+        <select id="fAI" onchange="applyFilters()">
+          <option value="">All</option><option value="flagged">Flagged</option><option value="ok">OK</option>
+        </select>
+      </div>
+      <input type="text" id="fSearch" placeholder="Search call ID, reviewer, notes..." oninput="applyFilters()" />
+      <button class="btn sm" onclick="resetFilters()">Reset</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortBy('date')" style="width:58px">Date <span class="sort-icon" id="sort-date">↕</span></th>
+            <th style="width:100px">Type</th>
+            <th style="width:65px">Platform</th>
+            <th onclick="sortBy('reviewer')" style="width:140px">Reviewer <span class="sort-icon" id="sort-reviewer">↕</span></th>
+            <th style="width:105px">2nd Reviewer</th>
+            <th style="width:200px">Call ID</th>
+            <th onclick="sortBy('priority')" style="width:80px">Priority <span class="sort-icon" id="sort-priority">↕</span></th>
+            <th style="width:110px">Abandoned?</th>
+            <th style="width:90px">SOP Flag</th>
+            <th style="width:75px">AI Flag</th>
+            <th style="width:60px">Link</th>
+            <th>Audit Notes</th>
+          </tr>
+        </thead>
+        <tbody id="logTbody"></tbody>
+      </table>
+    </div>
+    <div class="pagination">
+      <div class="info" id="pageInfo"></div>
+      <div class="controls">
+        <button class="btn sm" id="prevBtn" onclick="goPage(currentPage-1)">← Prev</button>
+        <button class="btn sm" id="nextBtn" onclick="goPage(currentPage+1)">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SOP ACCURACY TAB ── -->
+  <div id="tabSop" style="display:none">
+    <div class="sop-filter-bar">
+      <button class="sop-filter-btn on" onclick="sopFilter('',this)">All (44)</button>
+      <button class="sop-filter-btn" onclick="sopFilter('confirmed',this)">✓ Confirmed (29)</button>
+      <button class="sop-filter-btn" onclick="sopFilter('upgrade',this)">↑ Upgrade to P0 (11)</button>
+      <button class="sop-filter-btn" onclick="sopFilter('rerate',this)">↑ Re-rate to P1 (2)</button>
+      <button class="sop-filter-btn" onclick="sopFilter('incomplete',this)">⚠ Incomplete (2)</button>
+    </div>
+    <div class="sop-cards" id="sopCards"></div>
+  </div>
+
+  <!-- ── AI REVIEW TAB ── -->
+  <div id="tabAI" style="display:none">
+    <div class="ai-run-area">
+      <div>
+        <div style="font-size:13px;font-weight:600;margin-bottom:3px">Live AI accuracy review</div>
+        <div style="font-size:12px;color:var(--text2)" id="aiRunStatus">Reviews all P0/P1 entries against Flex SOPs using Claude. Results are cached until you refresh.</div>
+      </div>
+      <div class="progress-bar" id="progressBar" style="display:none"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <button class="btn primary" id="runAiBtn" onclick="runAIReview()">Run AI Review ↗</button>
+    </div>
+    <div class="ai-cards" id="aiCards"><div class="empty"><div class="icon">🤖</div>Run the AI review to check all P0/P1 entries against the Flex SOPs.</div></div>
+  </div>
+
+</div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const DEFAULT_SHEET_ID = '1M5Wxu1Sc7HSz4ntwn8be6J2fA7zDwf3SBwCJvqHR9g4';
+const DEFAULT_TAB = 'Voicebot P1_P0';
+let SHEET_ID = localStorage.getItem('flex_sheet_id') || DEFAULT_SHEET_ID;
+let SHEET_TAB = localStorage.getItem('flex_sheet_tab') || DEFAULT_TAB;
+const PAGE_SIZE = 25;
+
+// ── SOP ACCURACY DATA ─────────────────────────────────────────────────────
+const SOP_DATA = {
+  '5d22544d': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating accurate. Reviewer fix is SOP-aligned. Bot should guide to Settings > Rent > Property > Change property before offering a ticket.' },
+  'f0f92302': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Borderline P0. Bot had the User-DQ code and chose not to escalate — gives false sense eligibility was pending. Reviewer escalation fix is SOP-correct.' },
+  '7e9796c2': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Reviewer\'s fix says "last 5 days of month" (FA window) — for DI customers the correct answer is last day of prior month.' },
+  '9ea34f70': { verdict:'P1 → upgrade to P0 warranted', flag:'upgrade', note:'Should be P0. Wrong BP window to a DI customer directly risks missed payments — meets the P0 definition. Reviewer\'s fix is SOP-accurate.' },
+  'f3b3a00e': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Same issue as 9ea34f70 — wrong BP window to DI customer carries real missed-payment risk. P0 re-evaluation recommended.' },
+  'ce91c11c': { verdict:'P0 Confirmed', flag:'confirmed', note:'P0 correct. Bot gave entirely wrong process to customer. Must verify {{customer_integration_type}} from API at start of any payment conversation.' },
+  '55b196b8': { verdict:'P0 Confirmed', flag:'confirmed', note:'P0 confirmed. Reviewer fix SOP-accurate. Additional: if customer wants to stop charges, correct guidance is Settings > Membership > Cancel Account.' },
+  '71253c13': { verdict:'P0 Confirmed', flag:'confirmed', note:'P0 confirmed. Reviewer fix SOP-accurate. Addition: SOP specifies bot should note the 3-business-day wait time and offer ticket if exceeded.' },
+  'b07386d2': { verdict:'No Issue → recommend P1', flag:'rerate', note:'SOP CONFLICT: Notes describe bot setting false expectation about payment plan availability for 1st payment — which does not exist per SOP. Meets P1 definition. Recommend re-evaluating as P1.' },
+  'NOID_1':  { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Bot should always confirm Flex Funds balance when customer references an amount they added.' },
+  'NOID_2':  { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating accurate. Reviewer fix SOP-correct. Recurring misconception the bot should address proactively whenever split payment timing is discussed.' },
+  'c84f5f9d': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Bot should always check whether customer is at max credit line before advising on payment amount adjustments.' },
+  '0d5be524': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate and SOP-aligned. 2nd payment schedule only generates after 1st payment settles.' },
+  'acdcff34': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating accurate. Bot should use payment history context to identify payment type before defaulting to 1st payment guidance.' },
+  '2fab18f4': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'P1 is minimum. If autopay was OFF and customer relied on this, they could miss payment entirely — meets P0 risk threshold. P0 re-evaluation recommended.' },
+  'e30eaa54': { verdict:'No Issue → recommend P1', flag:'rerate', note:'SOP CONFLICT: Bot never explained why ticket was the only option instead of a human call. Per Escalation SOP this is a P1. Recommend re-evaluating as P1.' },
+  '4d4356f7': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate and SOP-aligned. Payment splits are determined by approved credit line, not freely configurable.' },
+  '00ed050e': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Re-link guidance is in Updating Account Information SOP (Scenario 1) and should pair with cycle explanation.' },
+  'b44299db': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating accurate. NLU failure — bot should always confirm ambiguous end-call triggers before acting.' },
+  'ffa5da6f': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Borderline P0. Customer\'s request was directly denied based on incorrect information — concrete harm. P0 re-evaluation recommended.' },
+  '3354a8f8': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Borderline P0. Confirming a past due date as current directly misleads customer about payment status. P0 re-evaluation recommended.' },
+  '70312eb8': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Bot cited a rule without verifying whether the condition was actually met.' },
+  'ddb55a82': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating accurate. Reviewer fix correct. Bot should also verify customer\'s integration type at start before routing to any process explanation.' },
+  'cb40f50f': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate and SOP-aligned. MMF caveat is required by SOP whenever autopay off is recommended.' },
+  'ee36c357': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Bot should check {{autopay_status}} before responding to any 1st payment reschedule request.' },
+  'ec0bc529': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate and SOP-aligned. Address updates are self-service only per Updating Account Information SOP (Scenario 1).' },
+  'bc65f526': { verdict:'P1 → strong P0 candidate', flag:'upgrade', note:'Strong P0. Incorrect info directly caused customer to cancel their membership unnecessarily — concrete financial harm. Strongly recommend P0 re-evaluation.' },
+  '5252161c': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Context-tracking failure — bot confirmed details contradicting customer\'s stated intent.' },
+  '4243f115': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate and SOP-aligned. Bot must always offer next steps — never end session without a ticket or callback option.' },
+  '6da20f50': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating accurate. "Is there any way to verify myself?" should be treated as a request for alternatives, not a new verification attempt.' },
+  '2e4b9f38': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Feature availability must always be checked before any reschedule guidance is given.' },
+  'be8303a0': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Borderline P0. Bot gave factually wrong info about a financial product feature. Customer may not have used Flex Funds believing they wouldn\'t apply. P0 recommended.' },
+  '5dcaa9d3': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Strong P0 candidate. Customer received entirely wrong process due to stale account type read. Bot had access to current integration type and did not use it.' },
+  '3839f452': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. MMF caveat specifically required by SOP whenever autopay off is recommended.' },
+  'fc7b382e': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Tone requirement covered under Empathy & Tone SOP (P1: tone feels flat, lacks empathy).' },
+  '65f8db08': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Borderline P0. Bot\'s misfire caused distress to customer already upset — received entirely out-of-context response. P0 re-evaluation recommended.' },
+  '00780fc5': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate and SOP-aligned. Bot must always offer ticket when self-service option is not applicable.' },
+  '1bf8bf87': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating accurate. NLU failure — "speak to a representative" is a standard escalation trigger that should map directly to ticket creation flow.' },
+  'f58bece5': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Borderline P0. Bot gave false information about available actions and a wrong cutoff date. Customer was misled about their options. P0 recommended.' },
+  '38a84973': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Same issue as f58bece5 — second occurrence same date, suggesting systematic eligibility-checking failure. P0 re-evaluation recommended.' },
+  '014e167e': { verdict:'P1 Confirmed — consider P0', flag:'upgrade', note:'Borderline P0. Customer believes a ticket exists when it does not — may not seek further help. Email misspelling compounds this. P0 recommended.' },
+  '710a608e': { verdict:'P1 Confirmed', flag:'confirmed', note:'Rating and reviewer fix accurate. Bot should use payment history context (outstanding balance) to identify payment type before routing.' },
+  'e27a8e65': { verdict:'Cannot verify — notes incomplete', flag:'incomplete', note:'INSUFFICIENT DATA: Notes do not describe what the bot did wrong. Cannot validate P1 rating against SOP. Reviewer should supplement with specific failure.' },
+  '8df6a934': { verdict:'Partially verifiable — notes incomplete', flag:'incomplete', note:'PARTIAL DATA: Description aligns with a known SOP scenario (2nd payment reschedule to next month). P1 only validates if bot gave incorrect guidance. Reviewer should document the specific failure.' },
+};
+
+// ── STATE ─────────────────────────────────────────────────────────────────
+let allRows = [], filteredRows = [], currentPage = 1;
+let sortField = 'date', sortDir = 1;
+let trendChart, reviewerChart;
+let sopFilterActive = '';
+const aiResults = {};
+
+// ── SHEET CONNECTION ──────────────────────────────────────────────────────
+function connectSheet() {
+  const id = document.getElementById('sheetIdInput').value.trim();
+  const tab = document.getElementById('sheetTabInput').value.trim();
+  if (id) { SHEET_ID = id; localStorage.setItem('flex_sheet_id', id); }
+  if (tab) { SHEET_TAB = tab; localStorage.setItem('flex_sheet_tab', tab); }
+  loadSheet();
+}
+
+function setStatus(msg, state) {
+  document.getElementById('stxt').textContent = msg;
+  const dot = document.getElementById('sdot');
+  dot.className = 'sdot' + (state === 'loading' ? ' loading' : state === 'error' ? ' error' : '');
+}
+
+async function loadSheet() {
+  setStatus('Fetching from Google Sheets...', 'loading');
+  try {
+    const encodedTab = encodeURIComponent(SHEET_TAB);
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodedTab}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Could not reach sheet — check sharing settings (Anyone with link can view)');
+    const text = await res.text();
+    parseSheetData(text);
+    const now = new Date().toLocaleTimeString();
+    setStatus(`Live · ${allRows.length} entries loaded · Last refresh: ${now}`, '');
+    document.getElementById('lastUpdated').textContent = `Refreshed ${now}`;
+    document.getElementById('sheetConfig').style.display = 'none';
+  } catch(e) {
+    setStatus('Error: ' + e.message, 'error');
+    showToast('Sheet connection failed. Using pre-loaded data.', 3000);
+  }
+}
+
+function parseSheetCSV(line) {
+  const res = []; let cur = '', inq = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (inq && line[i+1] === '"') { cur += '"'; i++; } else inq = !inq; }
+    else if (c === ',' && !inq) { res.push(cur); cur = ''; }
+    else cur += c;
+  }
+  res.push(cur);
+  return res.map(s => s.trim());
+}
+
+function parseSheetData(csvText) {
+  const lines = csvText.trim().split('\n');
+  const VALID_PRI = ['P0','P1','P2','No Issue','No issue','Auto escalated'];
+  const rows = [];
+  // Skip header rows — find first row where col index 7 looks like a priority
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseSheetCSV(lines[i]);
+    if (cols.length < 8) continue;
+    const date = cols[0];
+    const type = cols[1];
+    const platform = cols[2];
+    const reviewer = cols[3];
+    const reviewer2 = cols[4] || '';
+    const callId = cols[5];
+    const url = cols[6];
+    const priority = cols[7];
+    const abandoned = cols[8] || '';
+    const notes = cols[9] || '';
+    if (!VALID_PRI.includes(priority)) continue;
+    if (!date || !reviewer) continue;
+    // Filter Apr 23+
+    try {
+      const [m, d] = date.split('/').map(Number);
+      if (m < 4 || (m === 4 && d < 23)) continue;
+    } catch(e) { continue; }
+    // Attach SOP check
+    const sopKey = callId ? callId.substring(0, 8) : null;
+    const sopCheck = sopKey ? SOP_DATA[sopKey] : null;
+    rows.push({ date, type, platform, reviewer, reviewer2, callId, url, priority, abandoned, notes, sopCheck, aiFlag: null, aiSug: null, aiReason: null });
+  }
+  allRows = rows;
+  boot();
+}
+
+// ── BOOT ──────────────────────────────────────────────────────────────────
+function boot() {
+  updateMetrics();
+  populateDropdowns();
+  renderCharts();
+  applyFilters();
+  renderSopCards();
+}
+
+function updateMetrics() {
+  const c = p => allRows.filter(r => r.priority === p).length;
+  document.getElementById('mP0').textContent = c('P0');
+  document.getElementById('mP1').textContent = c('P1');
+  document.getElementById('mNI').textContent = c('No Issue') + c('No issue');
+  document.getElementById('mAb').textContent = allRows.filter(r => r.abandoned === 'Yes - With Engagement').length;
+  document.getElementById('mTot').textContent = allRows.length;
+  const flags = allRows.filter(r => r.aiFlag === 'flagged').length;
+  document.getElementById('mAI').textContent = flags || '—';
+  document.getElementById('logCount').textContent = allRows.length;
+}
+
+function populateDropdowns() {
+  const dates = [...new Set(allRows.map(r => r.date).filter(Boolean))].sort((a, b) => {
+    const [am, ad] = a.split('/').map(Number);
+    const [bm, bd] = b.split('/').map(Number);
+    return am - bm || ad - bd;
+  });
+  const reviewers = [...new Set(allRows.map(r => r.reviewer).filter(Boolean))].sort();
+  document.getElementById('fDate').innerHTML = '<option value="">All dates</option>' + dates.map(d => `<option>${d}</option>`).join('');
+  document.getElementById('fRev').innerHTML = '<option value="">All reviewers</option>' + reviewers.map(r => `<option>${r}</option>`).join('');
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────
+function renderCharts() {
+  const tmap = {};
+  allRows.forEach(r => {
+    if (!r.date) return;
+    if (!tmap[r.date]) tmap[r.date] = { P0: 0, P1: 0, up: 0 };
+    if (r.priority === 'P0') tmap[r.date].P0++;
+    if (r.priority === 'P1') tmap[r.date].P1++;
+    if (r.sopCheck?.flag === 'upgrade') tmap[r.date].up++;
+  });
+  const dates = Object.keys(tmap).sort((a, b) => {
+    const [am, ad] = a.split('/').map(Number);
+    const [bm, bd] = b.split('/').map(Number);
+    return am - bm || ad - bd;
+  });
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: { labels: dates, datasets: [
+      { label:'P0', data: dates.map(d => tmap[d].P0), backgroundColor: '#E24B4A', borderRadius: 4 },
+      { label:'P1', data: dates.map(d => tmap[d].P1), backgroundColor: 'rgba(186,117,23,.85)', borderRadius: 4 },
+      { label:'Suggest P0', data: dates.map(d => tmap[d].up), backgroundColor: 'rgba(239,159,39,.45)', borderRadius: 4 },
+    ]},
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } },
+                y: { stacked: true, ticks: { font: { size: 11 }, stepSize: 5 }, beginAtZero: true } } }
+  });
+  const rmap = {};
+  allRows.forEach(r => {
+    if (!r.reviewer || !['P0','P1'].includes(r.priority)) return;
+    rmap[r.reviewer] = (rmap[r.reviewer] || 0) + 1;
+  });
+  const rnames = Object.keys(rmap).sort((a, b) => rmap[b] - rmap[a]);
+  const h = Math.max(180, rnames.length * 24 + 50);
+  document.getElementById('reviewerWrap').style.height = h + 'px';
+  if (reviewerChart) reviewerChart.destroy();
+  reviewerChart = new Chart(document.getElementById('reviewerChart'), {
+    type: 'bar',
+    data: { labels: rnames, datasets: [{ label:'Issues', data: rnames.map(n => rmap[n]), backgroundColor: '#185FA5', borderRadius: 4 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { ticks: { font: { size: 11 } }, beginAtZero: true, grid: { display: false } },
+                y: { ticks: { font: { size: 10 } } } } }
+  });
+}
+
+// ── FILTERS + TABLE ───────────────────────────────────────────────────────
+function applyFilters() {
+  const fp = document.getElementById('fPri').value;
+  const fd = document.getElementById('fDate').value;
+  const fr = document.getElementById('fRev').value;
+  const ft = document.getElementById('fType').value;
+  const fa = document.getElementById('fAb').value;
+  const fsop = document.getElementById('fSop').value;
+  const fai = document.getElementById('fAI').value;
+  const fs = document.getElementById('fSearch').value.toLowerCase();
+  filteredRows = allRows.filter(r => {
+    if (fp && r.priority !== fp) return false;
+    if (fd && r.date !== fd) return false;
+    if (fr && r.reviewer !== fr) return false;
+    if (ft && r.type !== ft) return false;
+    if (fa && r.abandoned !== fa) return false;
+    if (fsop && r.sopCheck?.flag !== fsop) return false;
+    if (fai === 'flagged' && r.aiFlag !== 'flagged') return false;
+    if (fai === 'ok' && r.aiFlag !== 'ok') return false;
+    if (fs && !r.callId.toLowerCase().includes(fs) && !r.notes.toLowerCase().includes(fs) && !r.reviewer.toLowerCase().includes(fs)) return false;
+    return true;
+  });
+  // Sort
+  filteredRows.sort((a, b) => {
+    let av = a[sortField] || '', bv = b[sortField] || '';
+    if (sortField === 'date') {
+      const [am, ad] = av.split('/').map(Number);
+      const [bm, bd] = bv.split('/').map(Number);
+      return sortDir * ((am - bm) || (ad - bd));
+    }
+    return sortDir * av.localeCompare(bv);
+  });
+  currentPage = 1;
+  renderTable();
+  document.getElementById('logCount').textContent = filteredRows.length;
+}
+
+function resetFilters() {
+  ['fPri','fDate','fRev','fType','fAb','fSop','fAI'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('fSearch').value = '';
+  applyFilters();
+}
+
+function sortBy(field) {
+  if (sortField === field) { sortDir *= -1; }
+  else { sortField = field; sortDir = 1; }
+  document.querySelectorAll('.sort-icon').forEach(el => el.classList.remove('active'));
+  const icon = document.getElementById('sort-' + field);
+  if (icon) { icon.textContent = sortDir === 1 ? '↑' : '↓'; icon.classList.add('active'); }
+  applyFilters();
+}
+
+function renderTable() {
+  const tbody = document.getElementById('logTbody');
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const page = filteredRows.slice(start, start + PAGE_SIZE);
+  if (!page.length) {
+    tbody.innerHTML = '<tr><td colspan="12" class="empty">No entries match the current filters.</td></tr>';
+    document.getElementById('pageInfo').textContent = '0 entries';
+    document.getElementById('prevBtn').disabled = true;
+    document.getElementById('nextBtn').disabled = true;
+    return;
+  }
+  const priClass = { 'P0':'p0','P1':'p1','No Issue':'ni','No issue':'ni' };
+  const sopLabel = { 'confirmed':'✓ OK','upgrade':'↑ P0?','rerate':'↑ P1?','incomplete':'⚠ Notes?' };
+  const aiClass = { 'flagged':'flagged','ok':'ok' };
+  tbody.innerHTML = page.map((r, idx) => {
+    const pc = priClass[r.priority] || 'gray';
+    const sc = r.sopCheck ? `<span class="badge ${r.sopCheck.flag}">${sopLabel[r.sopCheck.flag]||'—'}</span>` : '<span class="badge gray">—</span>';
+    const ac = r.aiFlag ? `<span class="badge ${aiClass[r.aiFlag]||'gray'}">${r.aiFlag}</span>` : '<span class="badge gray">—</span>';
+    const link = r.url ? `<a href="${r.url}" target="_blank" style="font-size:11px">Open ↗</a>` : '—';
+    const ab = r.abandoned === 'Yes - With Engagement' ? '<span class="badge p1" style="font-size:10px">Yes·Engaged</span>' : '<span style="font-size:11px;color:var(--text3)">No</span>';
+    const notes = r.notes || '';
+    const shortNotes = notes.substring(0, 100) + (notes.length > 100 ? '…' : '');
+    const rowId = `row-${start+idx}`;
+    return `<tr>
+      <td>${r.date}</td>
+      <td style="font-size:11px">${r.type}</td>
+      <td style="font-size:11px">${r.platform}</td>
+      <td title="${r.reviewer}" style="overflow:hidden;text-overflow:ellipsis;max-width:140px;white-space:nowrap">${r.reviewer||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.reviewer2||'—'}</td>
+      <td class="mono" title="${r.callId}">${r.callId ? r.callId.substring(0,22)+'…' : '<span style="color:var(--text3)">No ID</span>'}</td>
+      <td><span class="badge ${pc}">${r.priority}</span></td>
+      <td>${ab}</td>
+      <td>${sc}</td>
+      <td>${ac}</td>
+      <td>${link}</td>
+      <td class="notes-cell" id="${rowId}" onclick="this.classList.toggle('expanded')">
+        <span class="notes-short" style="font-size:11px;color:var(--text2)">${shortNotes}</span>
+        <span class="notes-full">${notes}</span>
+      </td>
+    </tr>`;
+  }).join('');
+  const total = filteredRows.length;
+  const pages = Math.ceil(total / PAGE_SIZE);
+  document.getElementById('pageInfo').textContent = `${start+1}–${Math.min(start+PAGE_SIZE, total)} of ${total} entries`;
+  document.getElementById('prevBtn').disabled = currentPage <= 1;
+  document.getElementById('nextBtn').disabled = currentPage >= pages;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(filteredRows.length / PAGE_SIZE);
+  if (p < 1 || p > pages) return;
+  currentPage = p;
+  renderTable();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── SOP CARDS ─────────────────────────────────────────────────────────────
+function sopFilter(flag, btn) {
+  sopFilterActive = flag;
+  document.querySelectorAll('.sop-filter-btn').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderSopCards();
+}
+
+function renderSopCards() {
+  const rows = allRows.filter(r => r.sopCheck && (!sopFilterActive || r.sopCheck.flag === sopFilterActive));
+  const priClass = { 'P0':'p0','P1':'p1','No Issue':'ni' };
+  const html = rows.map((r, i) => {
+    const sc = r.sopCheck;
+    const num = allRows.indexOf(r) + 1;
+    const pc = priClass[r.priority] || 'gray';
+    const shortId = r.callId ? r.callId.substring(0,8) + '…' : 'No ID';
+    // Parse notes sections
+    const wrongMatch = r.notes.match(/What went wrong[?]?\s*\n?([\s\S]*?)(?:What should|$)/i);
+    const shouldMatch = r.notes.match(/What should the bot have said[?]?\s*\n?([\s\S]*?)$/i);
+    const wrongText = wrongMatch ? wrongMatch[1].trim().replace(/^[-•\d.]\s*/gm,'').substring(0,300) : r.notes.substring(0,250);
+    const shouldText = shouldMatch ? shouldMatch[1].trim().replace(/^[-•\d.]\s*/gm,'').substring(0,300) : '—';
+    return `<div class="sop-card">
+      <div class="sop-card-header" style="background:${ r.priority==='P0'?'rgba(163,45,45,.07)':r.priority==='No Issue'?'rgba(39,80,10,.06)':'rgba(186,117,23,.06)'}">
+        <span class="badge ${pc}">${r.priority}</span>
+        <span class="call-num">Call ${num} of ${allRows.length}</span>
+        <span class="meta">— ${r.date} — Reviewer: ${r.reviewer}</span>
+        <span class="call-id">${shortId}</span>
+        ${r.url ? `<a class="giga-link btn sm" href="${r.url}" target="_blank">Open in Giga ↗</a>` : ''}
+      </div>
+      <div class="sop-card-body">
+        <div class="sop-section">
+          <h4 style="color:#A32D2D">What went wrong</h4>
+          <p>${wrongText}</p>
+        </div>
+        <div class="sop-section">
+          <h4 style="color:#185FA5">What the bot should have said</h4>
+          <p>${shouldText}</p>
+        </div>
+        <div class="sop-check ${sc.flag}">
+          <div class="check-label">SOP accuracy check — ${sc.verdict}</div>
+          <p>${sc.note}</p>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('sopCards').innerHTML = html || '<div class="empty"><div class="icon">✓</div>No entries match this filter.</div>';
+}
+
+// ── AI REVIEW ─────────────────────────────────────────────────────────────
+const SOP_CONTEXT = `Flex voicebot QA SOP:
+P0=wrong or harmful info to customer. P1=incomplete or partially wrong, not harmful. No Issue=handled correctly.
+Key rules: DI customers BP window=last day of prior month through 3PM ET on 5th. FA customers BP window=3 days before 1st through 5th. MMF charged every month regardless of use. Flex Funds cover ALL payments including MMF. Address updates=self-service only. 1st payment reschedule=only if autopay ON. Bank verification code=emailed by Flex, NOT in personal bank. Deleted accounts cannot create new accounts. Autopay off does NOT pause MMF. No live phone support — always offer ticket. Bot must confirm ticket created before ending call.`;
+
+async function runAIReview() {
+  const toReview = allRows.filter(r => ['P0','P1'].includes(r.priority) && r.notes && r.notes.length > 20);
+  if (!toReview.length) { showToast('No P0/P1 entries with notes to review.'); return; }
+  const btn = document.getElementById('runAiBtn');
+  btn.disabled = true;
+  btn.textContent = 'Reviewing...';
+  document.getElementById('progressBar').style.display = 'block';
+  document.getElementById('aiCards').innerHTML = '<div class="empty">Running AI review — checking entries against Flex SOPs...</div>';
+  let done = 0, flags = 0;
+  for (let i = 0; i < toReview.length; i += 5) {
+    const batch = toReview.slice(i, i + 5);
+    await Promise.all(batch.map(async r => {
+      try {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 300,
+            messages: [{ role: 'user', content: `${SOP_CONTEXT}\n\nAUDIT ENTRY:\nDate: ${r.date} | Reviewer: ${r.reviewer} | Assigned priority: ${r.priority} | Abandoned: ${r.abandoned}\nNotes: ${r.notes.substring(0, 500)}\n\nReply ONLY with JSON (no markdown, no extra text):\n{"flag":"ok"or"flagged","suggested_priority":"same or corrected value","reason":"one sentence explanation"}` }]
+          })
+        });
+        const data = await res.json();
+        const txt = (data.content || []).map(b => b.text || '').join('').replace(/```json|```/g, '').trim();
+        const parsed = JSON.parse(txt);
+        r.aiFlag = parsed.flag;
+        r.aiSug = parsed.suggested_priority;
+        r.aiReason = parsed.reason;
+        if (parsed.flag === 'flagged') flags++;
+      } catch(e) { r.aiFlag = 'error'; }
+      done++;
+    }));
+    const pct = Math.round(done / toReview.length * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('aiRunStatus').textContent = `Reviewing ${done}/${toReview.length} entries...`;
+    document.getElementById('mAI').textContent = flags || '—';
+    document.getElementById('aiCount').textContent = flags;
+  }
+  updateMetrics();
+  renderAICards(toReview, flags);
+  renderTable();
+  btn.disabled = false;
+  btn.textContent = 'Re-run AI Review ↗';
+  document.getElementById('aiRunStatus').textContent = `Complete — ${flags} entries flagged out of ${toReview.length} reviewed`;
+  document.getElementById('progressBar').style.display = 'none';
+  showToast(`AI review complete — ${flags} entries flagged`);
+}
+
+function renderAICards(rows, flags) {
+  const flagged = rows.filter(r => r.aiFlag === 'flagged');
+  const ok = rows.filter(r => r.aiFlag === 'ok');
+  const priClass = { 'P0':'p0','P1':'p1' };
+  let html = '';
+  if (flagged.length) {
+    html += `<div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--text)">${flagged.length} entr${flagged.length===1?'y':'ies'} flagged for re-review</div>`;
+    flagged.forEach(r => {
+      html += `<div class="ai-card">
+        <div class="ai-card-header">
+          <span class="badge ${priClass[r.priority]||'gray'}">${r.priority} assigned</span>
+          ${r.aiSug && r.aiSug !== r.priority ? `<span class="badge flagged">→ ${r.aiSug}</span>` : ''}
+          <span style="font-size:11px;color:var(--text2)">${r.date} · ${r.reviewer}</span>
+          <span style="font-family:monospace;font-size:10px;color:var(--text3)">${r.callId ? r.callId.substring(0,20)+'…' : 'No ID'}</span>
+          ${r.url ? `<a href="${r.url}" target="_blank" class="btn sm" style="margin-left:auto">Giga ↗</a>` : ''}
+        </div>
+        <p><strong style="color:var(--text)">AI note:</strong> ${r.aiReason || '—'}</p>
+        <p style="margin-top:6px;font-size:11px">${(r.notes||'').substring(0, 220)}${r.notes&&r.notes.length>220?'…':''}</p>
+      </div>`;
+    });
+  }
+  if (ok.length) {
+    html += `<div style="font-size:12px;color:var(--text2);margin-top:14px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);">
+      <strong>${ok.length}</strong> entr${ok.length===1?'y':'ies'} confirmed accurate by AI — no rating change suggested.
+    </div>`;
+  }
+  document.getElementById('aiCards').innerHTML = html || '<div class="empty">No results.</div>';
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────────────────
+function swTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('tabLog').style.display = name === 'log' ? '' : 'none';
+  document.getElementById('tabSop').style.display = name === 'sop' ? '' : 'none';
+  document.getElementById('tabAI').style.display = name === 'ai' ? '' : 'none';
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────
+function exportCSV() {
+  const headers = ['Date','Type','Platform','Reviewer','2nd Reviewer','Call ID','Priority','Abandoned','SOP Flag','AI Flag','URL','Notes'];
+  const rows = [headers.join(',')];
+  allRows.forEach(r => {
+    rows.push([
+      r.date, r.type, r.platform, r.reviewer, r.reviewer2||'', r.callId||'',
+      r.priority, r.abandoned||'',
+      r.sopCheck?.flag||'', r.aiFlag||'', r.url||'',
+      '"'+( r.notes||'').replace(/"/g,'""')+'"'
+    ].join(','));
+  });
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `voicebot-qa-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  showToast('CSV exported!');
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────
+function showToast(msg, duration=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), duration);
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  document.getElementById('sheetIdInput').value = SHEET_ID;
+  document.getElementById('sheetTabInput').value = SHEET_TAB;
+  loadSheet();
+});
+</script>
+</body>
+</html>
